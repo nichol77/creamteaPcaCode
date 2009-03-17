@@ -9,7 +9,7 @@ include Makefile.arch
 SYSINCLUDES	= 
 SYSLIBS         = 
 
-SIMPLE_GEANT_SIM_DIR=/Users/rjn/creamtea/simpleGeantSim
+SIMPLE_GEANT_SIM_DIR=/home/rjn/creamtea/simpleGeantSim
 
 
 #Generic and Site Specific Flags

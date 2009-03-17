@@ -36,76 +36,68 @@
 
 //The steering file
 #define SOURCE_F "sourcePca.dat"
+#define SMALL_NUM  0.00000001
 
-void CloseApproach(double xy[2], double zy[2], double inxy[2], double inzy[2], double ca[3])
+void CloseApproach(double xz[2], double yz[2], double inxz[2], double inyz[2], double ca[3])
 { 
-  double A1 = xy[0], B1 = inxy[0], C1 = zy[0], D1 = inzy[0];
+  Double_t a=xz[0]*xz[0]+yz[0]*yz[0]+1;
+  Double_t b=xz[0]*xz[1]+yz[0]*yz[1]+1;
+  Double_t c=xz[1]*xz[1]+yz[1]*yz[1]+1;
+  Double_t d=xz[0]*(inxz[0]-inxz[1]) + yz[0]*(inyz[0]-inyz[1]);
+  Double_t e=xz[1]*(inxz[0]-inxz[1]) + yz[1]*(inyz[0]-inyz[1]);
 
-  double A2 = xy[1], B2 = inxy[1], C2 = zy[1], D2 = inzy[1];
+  Double_t denom=a*c-b*b;
+  Double_t sc=(a*e - c*d)/denom;
+  Double_t tc=(a*e - c*d)/denom;
 
-  double M11 = 1.0 + (A1*A1) + (A1*A1)/(C1*C1);
-  double M12 =-1.0 - (A1*A2) - (A2*A1)/(C1*C2);
-  double M22 = 1.0 + (A2*A2) + (A2*A2)/(C2*C2);
-
-  double K1 = (A1*B1) - (A1*B2) + (A1*B1)/(C1*C1) - (A1*D1)/(C1*C1) - (A1*B2)/(C1*C2) + (D2*A1)/(C1*C2);  
-  double K2 = (A2*B2) - (A2*B1) + (A2*D1)/(C1*C2) - (A2*B1)/(C1*C2) - (A2*D2)/(C2*C2) + (A2*B2)/(C2*C2);
- 
-  double xinter1 = (K1*M22 - K2*M12)/(M12*M12 - M11*M22);
-  double xinter2 = (K1*M12 - K2*M11)/(M11*M22 - M12*M12);
-
-  double yinter2 = (A2*xinter2) + B2;
-  double yinter1 = (A1*xinter1) + B1;
-
-  double zinter2 = (A2*xinter2 + B2 - D2)/C2;
-  double zinter1 = (A1*xinter1 + B1 - D1)/C1;
-
-  ca[0]= (xinter1 + xinter2)/2.;
-  ca[1]= (yinter1 + yinter2)/2.;
-  ca[2]= (zinter1 + zinter2)/2.;
-
-  // double R = std::sqrt((xinter2-xinter1)*(xinter2-xinter1) + (yinter2-yinter1)*(yinter2-yinter1) + (zinter2-zinter1)*(zinter2-zinter1));
+  //  std::cout << "CA:\t" << denom << "\t" << sc << "\t" << tc << "\n";
+  ca[0]=0.5*((xz[0]*sc +inxz[0])+(xz[1]*tc+inxz[1]));
+  ca[1]=0.5*((yz[0]*sc +inyz[0])+(yz[1]*tc+inyz[1]));
+  ca[2]=0.5*(sc+tc);
 }
 
 
 
-void fitxyz(float X[], float Y[], float Z[], double gradXY[2], double gradZY[2])
+void fitxyz(int nPoints, float X[], float Y[], float Z[], double gradXZ[2], double gradYZ[2])
 {
 
-  double sumX2 = 0.0, sumX = 0.0, sumXY = 0.0, sumY = 0.0;
+  double sumZ2 = 0.0, sumX = 0.0, sumXZ = 0.0, sumZ = 0.0;
 
-  double sumZ2 = 0.0, sumZ = 0.0, sumZY = 0.0;
+  double sumY2 = 0.0, sumY = 0.0, sumYZ = 0.0;
+  
+  double sumX2 = 0.0;
 
-  double deltaX = 0.0, deltaZ = 0.0;
+  double deltaX = 0.0, deltaY = 0.0;
 
-  int nPoints=3;
-
-  for (int i = 0; i < nPoints; i++)
-    { 
-      sumX2 += double( X[i]*X[i] );       
-      sumXY += double( X[i]*Y[i] );
-      sumX  += double( X[i] );       
-      sumY  += double( Y[i] );       
-    }
-
-  deltaX    = (nPoints*sumX2) - (sumX*sumX);
-  gradXY[1] = ( (sumX2*sumY) - (sumX*sumXY) )/deltaX;
-  gradXY[0] = ( (nPoints*sumXY) - (sumX*sumY) )/deltaX;
-
-  sumY=0.0;
 
   for (int i = 0; i < nPoints; i++)
     { 
       sumZ2 += double( Z[i]*Z[i] );       
-      sumZY += double( Z[i]*Y[i] );
-      sumZ  += double( Z[i] );       
+      sumXZ += double( X[i]*Z[i] );
+      sumYZ += double( Y[i]*Z[i] );
+      sumX  += double( X[i] );       
       sumY  += double( Y[i] );       
+      sumZ  += double( Z[i] );       
     }
 
+  sumZ2/=nPoints;
+  sumXZ/=nPoints;
+  sumYZ/=nPoints;
+  sumX/=nPoints;
+  sumY/=nPoints;
+  sumZ/=nPoints;
+  
+  double covxz=sumXZ-sumX*sumZ;
+  double covyz=sumYZ-sumY*sumZ;
+  double sigmaz2=sumZ2-sumZ*sumZ;
+
+  gradXZ[0] = covxz/sigmaz2;
+  gradXZ[1] = sumX - gradXZ[0]*sumZ;
+
+  gradYZ[0] = covyz/sigmaz2;
+  gradYZ[1] = sumY - gradYZ[0]*sumZ;
 
 
-  deltaZ    = (nPoints*sumZ2) - (sumZ*sumZ);
-  gradZY[1] = ( (sumZ2*sumY) - (sumZ*sumZY) )/ deltaZ;
-  gradZY[0] = ( (nPoints*sumZY) - (sumZ*sumY) )/deltaZ;
 }
 
 
@@ -119,16 +111,22 @@ int main(int argc, char**argv)
 
   int noBins = 100; //default value
   char inputFile[256];
+  char outputFile[256];
 
   ifstream in0;
   in0.open(SOURCE_F);
   in0>>noBins>>inputFile;
 
-  std::string outName = "pca_";
-  outName.append (inputFile);
+  //  std::string outName = "pca_";
+  //  outName.append (inputFile);
 
-  TFile* newfile = new TFile(outName.c_str(),"RECREATE");
+  //Note the below code is lazy and causes a memory leak
+  sprintf(outputFile,"%s/pca_%s",gSystem->DirName(inputFile),gSystem->BaseName(inputFile));
+
+  TFile* newfile = new TFile(outputFile,"RECREATE");
   
+
+
   double xPos = 0, yPos = 0, zPos = 0;
 
   TTree* PCA = new TTree ("PCA","PCA");
@@ -137,16 +135,16 @@ int main(int argc, char**argv)
   PCA->Branch ("yPos", &yPos,"yPos/D");
   PCA->Branch ("zPos", &zPos,"zPos/D");
  
-  TH3F* PCAh = new TH3F("PCAh","PCAh",noBins,-histoRange/2,histoRange/2,  noBins,-6,histoRange, noBins,-histoRange/2,histoRange/2); 
+  TH3F* PCAh = new TH3F("PCAh","PCAh",noBins,-histoRange/2,histoRange/2,  noBins,-histoRange/2,histoRange/2, noBins,-histoRange/2,histoRange/2); 
   
-  double AGradx = 0, AGradz = 0, ACutx = 0, ACutz = 0; //cuts and gradients for y as a function of x or z  (ie y = a*x + b)
+  double AGradx = 0, AGrady = 0, ACutx = 0, ACuty = 0; //cuts and gradients for y as a function of x or z  (ie y = a*x + b)
 
   TTree* Absorbed = new TTree("Absorbed","Absorbed");
 
   Absorbed->Branch("xGrad", &AGradx, "gradX/D" );
   Absorbed->Branch("xCut",  &ACutx,  "cutX/D" );
-  Absorbed->Branch("zGrad", &AGradz, "gradZ/D" );
-  Absorbed->Branch("zCut",  &ACutz,  "cutZ/D" );
+  Absorbed->Branch("yGrad", &AGrady, "gradY/D" );
+  Absorbed->Branch("yCut",  &ACuty,  "cutY/D" );
 
   TH2F* AbsorbedHisto = new TH2F("AbsorbedH","AbsorbedH", noBins, -histoRange/2, histoRange/2, noBins, -histoRange/2, histoRange/2);
 
@@ -176,92 +174,129 @@ int main(int argc, char**argv)
   scintTree->SetBranchAddress("ScintHitInfo.truePos[3]",truePos); 
   scintTree->SetBranchAddress("ScintHitInfo.energyDep",energyDep); 
 
-  float x1[PLANES_PER_SIDE],y1[PLANES_PER_SIDE],z1[PLANES_PER_SIDE];
+  float xTop[PLANES_PER_SIDE],yTop[PLANES_PER_SIDE],zTop[PLANES_PER_SIDE];
+  float xBot[PLANES_PER_SIDE],yBot[PLANES_PER_SIDE],zBot[PLANES_PER_SIDE];
 
-  double xyGrad[5] = {0.0,0.0,0.0,0.0,0.0}; // gradient for y = ax + b
-  double zyGrad[5] = {0.0,0.0,0.0,0.0,0.0}; // as above in yz plane
-  double xyCut[5]  = {0.0,0.0,0.0,0.0,0.0};  // axis intercept xy plane (b)
-  double zyCut[5]  = {0.0,0.0,0.0,0.0,0.0};  // as above yz plane
+  double xzGrad[2] = {0.0}; // gradient for z = ax + b
+  double yzGrad[2] = {0.0}; // as above in yz plane
+  double xzCut[2]  = {0.0};  // axis intercept xz plane (b)
+  double yzCut[2]  = {0.0};  // as above yz plane
 
   int nLines = 0;
-  double gradx[2];
-  double gradz[2];
+  double gradxz[2];
+  double gradyz[2];
   
-  int nEntries = scintTree->GetEntries();
 
+  int nEntries = scintTree->GetEntries();
+  //  nEntries=100;
+  std::cout << "There are " << nEntries << " entries\n";
  
   for(int entry=0;  entry < nEntries; entry++)
     {
       if( !(entry%1000) ) std::cout<< entry << " of " << nEntries <<std::endl;
       scintTree->GetEntry(entry);
 
-      std::cout << numScintHits << "\n";
 
-    //   for (int i = 0; i<6; i++)
-// 	{  
-// 	  int hits=0; // assume every third hit is a new set of events ie either entrance or exit
+      if(numScintHits>3) {
+	//	std::cout << "Num hits:\t" << numScintHits << "\n";
+	//Minimum requirement
+	int gotPlane[PLANES_PER_SIDE*2]={0};
+	Double_t xTemp[PLANES_PER_SIDE*2]={0},yTemp[PLANES_PER_SIDE*2]={0},zTemp[PLANES_PER_SIDE*2]={0};
+	Double_t weights[PLANES_PER_SIDE*2]={0};
+	for(int hit=0;hit<numScintHits;hit++) {
+	  //	  std::cout << plane[hit] << "\t" << strip[hit] << "\t" << truePos[hit][2] << "\t" << energyDep[hit] << "\n";
+	  gotPlane[plane[hit]]=1;
+	  xTemp[plane[hit]]+=truePos[hit][0]*energyDep[hit];
+	  yTemp[plane[hit]]+=truePos[hit][1]*energyDep[hit];
+	  zTemp[plane[hit]]+=truePos[hit][2]*energyDep[hit];
+	  weights[plane[hit]]+=energyDep[hit];
+	}	
+	
+	int topPlanes=0;
+	int botPlanes=0;
+	for(int plane=0;plane<PLANES_PER_SIDE;plane++) {
+	  
+	  if(gotPlane[plane]) {
+	    xTemp[plane]/=weights[plane];
+	    yTemp[plane]/=weights[plane];
+	    zTemp[plane]/=weights[plane];
+	    
+	    //	    std::cout << plane << "\t" << xTemp[plane] << "\t" << yTemp[plane] << "\t" << zTemp[plane] << "\n";
 
-// 	  for (int j=0; j<3; j++)
-// 	    {   
-// 	      if (gdata->boxy[j].nhits[i]>=1) //if there has been an impact on this layer + face
-// 		{
-// 		  int k = 0; 
-// 		  x1[hits] = gdata->boxy[j].scintx[i][k];
-// 		  y1[hits] = gdata->boxy[j].scinty[i][k];
-// 		  z1[hits] = gdata->boxy[j].scintz[i][k];
+	    xTop[topPlanes]=xTemp[plane];
+	    yTop[topPlanes]=yTemp[plane];
+	    zTop[topPlanes]=zTemp[plane];
+	    topPlanes++;
 
-// 		  energy->Fill(gdata->boxy[j].xdedx[i][k]);
+	  }
+	  if(gotPlane[plane+PLANES_PER_SIDE]) {
+	    xTemp[plane+PLANES_PER_SIDE]/=weights[plane+PLANES_PER_SIDE];
+	    yTemp[plane+PLANES_PER_SIDE]/=weights[plane+PLANES_PER_SIDE];
+	    zTemp[plane+PLANES_PER_SIDE]/=weights[plane+PLANES_PER_SIDE];
 
-// 		  previousEvtNo = currentEvtNo;
-// 		  currentEvtNo = gdata->evtno;
-		 
-// 		  hits++;
+	    xBot[botPlanes]=xTemp[plane+PLANES_PER_SIDE];
+	    yBot[botPlanes]=yTemp[plane+PLANES_PER_SIDE];
+	    zBot[botPlanes]=zTemp[plane+PLANES_PER_SIDE];
+	    botPlanes++;
+	  }
 
-// 		  impactNumber [i]++;
-		  
-// 		}
-// 	    }
+	}
 
-// 	  if (hits==3)
-// 	    { 
-// 	      fitxyz(x1,y1,z1, gradx,gradz); 
+	//	std::cout << "Planes:\t" << topPlanes << "\t" << botPlanes << "\n";
+	if(topPlanes<3) continue; //Didn't hit the top
+	fitxyz(topPlanes,xTop,yTop,zTop,gradxz,gradyz);
+	xzGrad[0]=gradxz[0];
+	yzGrad[0]=gradyz[0];
+	xzCut[0]=gradxz[1];
+	yzCut[0]=gradyz[1];
+	
+	//	std::cout << gradxz[0] << "\t" << gradxz[1] << "\t" << gradxz[1] + 1000*gradxz[0] << "\n";;
+	//	std::cout << gradyz[0] << "\t" << gradyz[1] << "\t" << gradyz[1] + 1000*gradyz[0] << "\n";;
+	 
 
-// 	      xyGrad[nLines] = gradx[0];
-// 	      zyGrad[nLines] = gradz[0];
+	if(botPlanes>2) {
+	  //Potential scatter
+	  fitxyz(botPlanes,xBot,yBot,zBot,gradxz,gradyz);
+	  xzGrad[1]=gradxz[0];
+	  yzGrad[1]=gradyz[0];
+	  xzCut[1]=gradxz[1];
+	  yzCut[1]=gradyz[1];
 
-// 	      xyCut[nLines]  = gradx[1];
-// 	      zyCut[nLines]  = gradz[1];
+	  Double_t pca[3];
+	  CloseApproach(xzGrad,yzGrad,xzCut,yzCut,pca);
+// 	  for(double z=-2000;z<2000;z+=100) {
+// 	    double x1=xzGrad[0]*z + xzCut[0];
+// 	    double x2=xzGrad[1]*z + xzCut[1];
+// 	    double y1=yzGrad[0]*z + yzCut[0];
+// 	    double y2=yzGrad[1]*z + yzCut[1];
+// 	    double diff=(x2-x1)*(x2-x1) + (y2-y1)*(y2-y1);
+// 	    std::cout << "Scan: " << z << "\t" << diff << "\n";
+// 	  }
 
-// 	      nLines++;
-// 	    }
-// 	}
+//	  std::cout << pca[0] << "\t" << pca[1] << "\t" << pca[2] << "\n";
+	  xPos = pca[0];
+	  yPos = pca[1];
+	  zPos = pca[2];
 
-//       double pca[3]; // point of closest approach x = 0 etc;
+	  PCA->Fill ();
 
-//       if(nLines==2 && previousEvtNo == currentEvtNo)
-// 	{ 
-// 	  CloseApproach(xyGrad,zyGrad,xyCut,zyCut,pca);
+	  PCAh->Fill(pca[0],pca[1],pca[2]);
+	  
+	
+	}
+	else {
+	  //Potential Absorbtion ... need to tweak them
+ 	  AbsorbedHisto->Fill(xTop[0],yTop[0]);
 
-// 	  xPos = pca[0];
-// 	  yPos = pca[1];
-// 	  zPos = pca[2];
+	  AGradx=gradxz[0];
+	  AGrady=gradyz[0];
+	  ACutx=gradxz[1];
+	  ACuty=gradyz[1];
+ 	  Absorbed ->Fill();
+	}
 
-// 	  PCA->Fill ();
+      }
 
-// 	  PCAh->Fill(pca[0],pca[1],pca[2]);
-// 	}
-//       else if (nLines == 1 && previousEvtNo == currentEvtNo) // assume all muons enter through top
-// 	{
-// 	  AbsorbedHisto->Fill(x1[2],z1[2]);
-
-// 	  AGradx = gradx[0];
-// 	  ACutx  = gradx[1];
-
-// 	  AGradz = gradz[0];
-// 	  ACutz  = gradz[1];
-
-// 	  Absorbed ->Fill();
-// 	}
     }
 
   newfile->cd();
