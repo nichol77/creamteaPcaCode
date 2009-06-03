@@ -32,7 +32,7 @@
 #include <cmath>
 
 
-//Somet global variables read from the world tree
+//Some global variables read from the world tree
 Double_t scintLength;
 Double_t planeWidth;
 Double_t gapBetweenPlanes;
