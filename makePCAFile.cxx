@@ -22,6 +22,7 @@
 #include <TH3.h>
 #include <TF1.h>
 #include <TStyle.h>
+#include <TMath.h>
 #include <TSystem.h>
 #include <TVector3.h>
 
@@ -32,15 +33,16 @@
 #include <cmath>
 
 
+
 //Some global variables read from the world tree
 Double_t scintLength;
 Double_t planeWidth;
 Double_t gapBetweenPlanes;
+Double_t verticalSeparation;
 Int_t planesPerSide;
 Int_t stripsPerPlane;
 
 //The steering file
-#define SOURCE_F "sourcePca.dat"
 #define SMALL_NUM  0.00000001
 
 namespace PlaneView {
@@ -62,7 +64,7 @@ PlaneView::PlaneView_t getStripCoords(Int_t planeNum, Int_t stripNum, Double_t x
     planeNum-=planesPerSide;
   }
 
-  Double_t zPos=(scintLength/2)+gapBetweenPlanes*planeNum + planeWidth*0.5;
+  Double_t zPos=(verticalSeparation/2)+gapBetweenPlanes*planeNum + planeWidth*0.5;
   Double_t xPos=0;
   Double_t yPos=0;
   if(!onTop) {
@@ -208,28 +210,62 @@ void findGradients(int numPoints, double X[], double Z[], double gradXZ[])
 
 int main(int argc, char**argv)
 {
+  char rootName[FILENAME_MAX];
+  char inputDir[FILENAME_MAX];
+  char outputFile[FILENAME_MAX];
+  int numFiles=1;
+  int startFile=1;
+  if(argc<5) {
+    std::cerr << "Usage:\t" << gSystem->BaseName(argv[0]) << "<input dir> <root name> <num files> <output file>\n";
+    return -1;
+  }
+  strncpy(inputDir,argv[1],FILENAME_MAX);
+  strncpy(rootName,argv[2],FILENAME_MAX);
+  strncpy(outputFile,argv[4],FILENAME_MAX);
+  numFiles=atoi(argv[3]);
+  if(argc>5)
+   startFile=atoi(argv[5]);  
 
+  std::cout << inputDir << "\t" << rootName << "\t" << outputFile << "\t"
+	    << numFiles << "\n";
 
   int noBins = 100; //default value
+
   char inputFile[256];
-  char outputFile[256];
 
-  ifstream in0;
-  in0.open(SOURCE_F);
-  in0>>noBins>>inputFile;
-  in0.close();
-  std::cout<<inputFile<<std::endl;
+  TTree *worldTree=0;
+  TChain *scintChain = new TChain("scintTree");
+  Int_t countFiles=0;
+  for(int fileNum=startFile;fileNum<startFile+numFiles;fileNum++) {
 
-  TFile* fp = new TFile(inputFile,"READ");
-  TTree *worldTree = (TTree*) fp->Get("worldTree");
-  worldTree->SetMakeClass(1);
-  worldTree->SetBranchAddress("scintLength",&scintLength);
-  worldTree->SetBranchAddress("planeWidth",&planeWidth);
-  worldTree->SetBranchAddress("gapBetweenPlanes",&gapBetweenPlanes);
-  worldTree->SetBranchAddress("stripsPerPlane",&stripsPerPlane);
-  worldTree->SetBranchAddress("planesPerSide",&planesPerSide);
-  worldTree->GetEntry(0);
-
+    sprintf(inputFile,"%s/%s_%d.root",inputDir,rootName,fileNum);
+    TFile* fp = new TFile(inputFile,"READ");
+    std::cout << inputFile << "\t" << fp << "\n";
+    if(!worldTree) {
+      worldTree = (TTree*) fp->Get("worldTree");
+      worldTree->SetMakeClass(1);
+      worldTree->SetBranchAddress("scintLength",&scintLength);
+      worldTree->SetBranchAddress("planeWidth",&planeWidth);
+      worldTree->SetBranchAddress("gapBetweenPlanes",&gapBetweenPlanes);
+      worldTree->SetBranchAddress("stripsPerPlane",&stripsPerPlane);
+      worldTree->SetBranchAddress("planesPerSide",&planesPerSide);
+      worldTree->SetBranchAddress("verticalSeparation",&verticalSeparation);
+      worldTree->GetEntry(0);
+      //RJN hack for now
+      //      verticalSeparation=3;
+    }
+           
+    TTree* scintTree = (TTree*) fp->Get("scintTree");
+    if(scintTree) {
+      if(scintTree->GetEntries()>800) {
+	fp->Close();
+	scintChain->Add(inputFile);
+	countFiles++;
+      }
+    }
+    
+  }
+  
   Int_t fRun,fEvent;
   Int_t numScintHits;
   Int_t side[MAX_SCINT_HITS];
@@ -237,20 +273,21 @@ int main(int argc, char**argv)
   Int_t strip[MAX_SCINT_HITS];
   Double_t truePos[MAX_SCINT_HITS][3];
   Double_t energyDep[MAX_SCINT_HITS];
+  scintChain->SetMakeClass(1);
+  scintChain->SetBranchAddress("run",&fRun);
+  scintChain->SetBranchAddress("event",&fEvent);
+  scintChain->SetBranchAddress("ScintHitInfo",&numScintHits); 
+  scintChain->SetBranchAddress("ScintHitInfo.side",side); 
+  scintChain->SetBranchAddress("ScintHitInfo.plane",plane); 
+  scintChain->SetBranchAddress("ScintHitInfo.strip",strip); 
+  scintChain->SetBranchAddress("ScintHitInfo.truePos[3]",truePos); 
+  scintChain->SetBranchAddress("ScintHitInfo.energyDep",energyDep); 
 
-  TTree* scintTree = (TTree*) fp->Get("scintTree");
-  scintTree->SetMakeClass(1);
-  scintTree->SetBranchAddress("run",&fRun);
-  scintTree->SetBranchAddress("event",&fEvent);
-  scintTree->SetBranchAddress("ScintHitInfo",&numScintHits); 
-  scintTree->SetBranchAddress("ScintHitInfo.side",side); 
-  scintTree->SetBranchAddress("ScintHitInfo.plane",plane); 
-  scintTree->SetBranchAddress("ScintHitInfo.strip",strip); 
-  scintTree->SetBranchAddress("ScintHitInfo.truePos[3]",truePos); 
-  scintTree->SetBranchAddress("ScintHitInfo.energyDep",energyDep); 
+
+
+
 
   //Note the below code is lazy and causes a memory leak
-  sprintf(outputFile,"%s/pca_%s",gSystem->DirName(inputFile),gSystem->BaseName(inputFile));
   double histoRange = scintLength*1000;
   TFile* newfile = new TFile(outputFile,"RECREATE");
 
@@ -258,16 +295,45 @@ int main(int argc, char**argv)
   double xPosReco = 0, yPosReco = 0, zPosReco = 0;
   Double_t thetaTrue=0;
   Double_t thetaReco=0;
+  Double_t thetaxzReco=0;
+  Double_t thetayzReco=0;
+  Double_t thetaxzTrue=0;
+  Double_t thetayzTrue=0;
+
+  //The [2] are for the top and bottom
+  double xzGradTrue[2] = {0.0}; // gradient for z = ax + b
+  double yzGradTrue[2] = {0.0}; // as above in yz plane
+  double xzCutTrue[2]  = {0.0};  // axis intercept xz plane (b)
+  double yzCutTrue[2]  = {0.0};  // as above yz plane
+  double xzGradReco[2] = {0.0}; // gradient for z = ax + b
+  double yzGradReco[2] = {0.0}; // as above in yz plane
+  double xzCutReco[2]  = {0.0};  // axis intercept xz plane (b)
+  double yzCutReco[2]  = {0.0};  // as above yz plane
+  int gotRecoPCA=0;
+  
+
+ 
   TTree* pcaTree = new TTree ("pcaTree","pcaTree");
   pcaTree->Branch ("xPosTrue", &xPosTrue,"xPosTrue/D");
   pcaTree->Branch ("yPosTrue", &yPosTrue,"yPosTrue/D");
   pcaTree->Branch ("zPosTrue", &zPosTrue,"zPosTrue/D");
   pcaTree->Branch("thetaTrue",&thetaTrue,"thetaTrue/D");
+  pcaTree->Branch("thetaxzTrue",&thetaxzTrue,"thetaxzTrue/D");
+  pcaTree->Branch("thetayzTrue",&thetayzTrue,"thetayzTrue/D");
+  pcaTree->Branch("xzGradTrue",&xzGradTrue,"xzGradTrue[2]/D");
+  pcaTree->Branch("yzGradTrue",&yzGradTrue,"yzGradTrue[2]/D");
 
+
+  pcaTree->Branch("gotRecoPCA", &gotRecoPCA,"gotRecoPCA/I");
   pcaTree->Branch ("xPosReco", &xPosReco,"xPosReco/D");
   pcaTree->Branch ("yPosReco", &yPosReco,"yPosReco/D");
   pcaTree->Branch ("zPosReco", &zPosReco,"zPosReco/D");
   pcaTree->Branch("thetaReco",&thetaReco,"thetaReco/D");
+
+  pcaTree->Branch("thetaxzReco",&thetaxzReco,"thetaxzReco/D");
+  pcaTree->Branch("thetayzReco",&thetayzReco,"thetayzReco/D");
+  pcaTree->Branch("xzGradReco",&xzGradReco,"xzGradReco[2]/D");
+  pcaTree->Branch("yzGradReco",&yzGradReco,"yzGradReco[2]/D");
 
   TH3F* PCAh = new TH3F("PCAh","PCAh",noBins,-histoRange/2,histoRange/2,  noBins,-histoRange/2,histoRange/2, noBins,-histoRange/2,histoRange/2); 
   
@@ -288,29 +354,19 @@ int main(int argc, char**argv)
   double xTopReco[MAX_PLANES_PER_SIDE],yTopReco[MAX_PLANES_PER_SIDE],xzTopReco[MAX_PLANES_PER_SIDE],yzTopReco[MAX_PLANES_PER_SIDE];
   double xBotReco[MAX_PLANES_PER_SIDE],yBotReco[MAX_PLANES_PER_SIDE],xzBotReco[MAX_PLANES_PER_SIDE],yzBotReco[MAX_PLANES_PER_SIDE];
 
-  //The [2] are for the top and bottom
-  double xzGradTrue[2] = {0.0}; // gradient for z = ax + b
-  double yzGradTrue[2] = {0.0}; // as above in yz plane
-  double xzCutTrue[2]  = {0.0};  // axis intercept xz plane (b)
-  double yzCutTrue[2]  = {0.0};  // as above yz plane
-  double xzGradReco[2] = {0.0}; // gradient for z = ax + b
-  double yzGradReco[2] = {0.0}; // as above in yz plane
-  double xzCutReco[2]  = {0.0};  // axis intercept xz plane (b)
-  double yzCutReco[2]  = {0.0};  // as above yz plane
 
-
-  int nEntries = scintTree->GetEntries();
+  int nEntries = scintChain->GetEntries();
   //  nEntries=100;
   std::cout << "There are " << nEntries << " entries\n";
  
   for(int entry=0;  entry < nEntries; entry++)
     {
       if( !(entry%1000) ) std::cout<< entry << " of " << nEntries <<std::endl;
-      scintTree->GetEntry(entry);
+      scintChain->GetEntry(entry);
 
 
+      //	std::cout << "Num hits:\t" << numScintHits << "\n";
       if(numScintHits>3) {
-	//	std::cout << "Num hits:\t" << numScintHits << "\n";
 	//Minimum requirement
 	int gotPlane[MAX_PLANES_PER_SIDE*2]={0};
 	Double_t xTrue[MAX_PLANES_PER_SIDE*2]={0},yTrue[MAX_PLANES_PER_SIDE*2]={0},zTrue[MAX_PLANES_PER_SIDE*2]={0};
@@ -327,6 +383,11 @@ int main(int argc, char**argv)
 	  //	  std::cout << "True: " << truePos[hit][0] << "\t" << truePos[hit][1] << "\t"
 	  //		    << truePos[hit][2] << "\n";
 
+	  if(TMath::IsNaN(recoXYZ[0])) {
+	    std::cout << "Nan at getStripCoords for plane " << plane[hit] << " strip " << strip[hit] << "\n";
+	  }
+	    
+	  
 	  gotPlane[plane[hit]]=1;
 	  xTrue[plane[hit]]+=truePos[hit][0]*energyDep[hit];
 	  yTrue[plane[hit]]+=truePos[hit][1]*energyDep[hit];
@@ -354,6 +415,10 @@ int main(int argc, char**argv)
 	    xReco[plane]/=weights[plane];
 	    yReco[plane]/=weights[plane];
 	    zReco[plane]/=weights[plane];
+	    
+	    if(TMath::IsNaN(xReco[plane])) { 
+	      std::cout << xReco[plane] << "\t" << weights[plane] << "\n";
+	    }
 	  }
 	}
 	
@@ -432,6 +497,27 @@ int main(int argc, char**argv)
 	  xzCutTrue[1]=gradxz[1];
 	  yzCutTrue[1]=gradyz[1];
 
+	  {
+	    float a1 = xzGradTrue[0];
+	    float a2 = xzGradTrue[1];
+	    
+	    float modp = sqrt(1.0+a1*a1);
+	    float modq = sqrt(1.0+a2*a2);
+	    
+	    float pdotq = 1.0/sqrt(modp*modq)+(a1*a2)/sqrt(modp*modq);
+	    
+	    thetaxzTrue = acos(pdotq/(modp*modq));
+	    
+	    a1 = yzGradTrue[0];
+	    a2 = yzGradTrue[1];
+
+	    modp = sqrt(1.0+a1*a1);
+	    modq = sqrt(1.0+a2*a2);
+	    
+	    pdotq = 1.0/sqrt(modp*modq)+(a1*a2)/sqrt(modp*modq);
+	    
+	    thetayzTrue = acos(pdotq/(modp*modq));
+	  }
 
 	  findGradients(botPlanesXView,xBotReco,xzBotReco,recoGradXZ);
 	  findGradients(botPlanesYView,yBotReco,yzBotReco,recoGradYZ);
@@ -439,7 +525,28 @@ int main(int argc, char**argv)
 	  yzGradReco[1]=recoGradYZ[0];
 	  xzCutReco[1]=recoGradXZ[1];
 	  yzCutReco[1]=recoGradYZ[1];
+          
+	  {
+	    float a1 = xzGradReco[0];
+	    float a2 = xzGradReco[1];
+	    
+	    float modp = sqrt(1.0+a1*a1);
+	    float modq = sqrt(1.0+a2*a2);
+	    
+	    float pdotq = 1.0/sqrt(modp*modq)+(a1*a2)/sqrt(modp*modq);
+	    
+	    thetaxzReco = acos(pdotq/(modp*modq));
+	    
+	    a1 = yzGradReco[0];
+	    a2 = yzGradReco[1];
 
+	    modp = sqrt(1.0+a1*a1);
+	    modq = sqrt(1.0+a2*a2);
+	    
+	    pdotq = 1.0/sqrt(modp*modq)+(a1*a2)/sqrt(modp*modq);
+	    
+	    thetayzReco = acos(pdotq/(modp*modq));
+	  }
 	  //	  std::cout << "RecoXZ: " << xzGradReco[0] << "\t" << xzGradReco[1] << "\n";
 
 	  Double_t pcaTrue[3];
@@ -464,6 +571,18 @@ int main(int argc, char**argv)
 	  TVector3 finalDirReco(xzGradReco[1],yzGradReco[1],1);
 	  thetaReco=intialDirReco.Angle(finalDirReco);
 
+
+	  gotRecoPCA=1;
+	  if(TMath::IsNaN(xPosReco)) {
+	    gotRecoPCA=0;
+	    //Generally this happens when the gradients from the top and bottom are identical.
+// 	    std::cout << "Oh no we have a Nan\n";
+// 	    std::cout << xPosReco << "\t" << yPosReco << "\t" << zPosReco << "\n";
+// 	    std::cout << "Gradients\t" << xzGradReco[0] << "\t" << xzGradReco[1] << "\n";
+// 	    std::cout << "Intercepts\t" << xzCutReco[0] << "\t" << xzCutReco[1] << "\n";
+// 	    std::cout << "True Gradients\t" << xzGradTrue[0] << "\t" << xzGradTrue[1] << "\n";
+// 	    std::cout << "True Intercepts\t" << xzCutTrue[0] << "\t" << xzCutTrue[1] << "\n";
+	  }
 
 	 
 	  pcaTree->Fill();
