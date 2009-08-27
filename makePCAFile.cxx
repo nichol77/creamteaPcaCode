@@ -126,9 +126,13 @@ void PointOfCloseApproach(double gradXz[2], double gradYz[2], double intXz[2], d
   
   //  std::cout << a1 << "\t" << b1 << "\t" << a2 << "\t" << b2 << "\n";
   //  std::cout << c1 << "\t" << d1 << "\t" << c2 << "\t" << d2 << "\n";
+ 
+  //If S=dx^2+dy^2 = az^2 + bz +c
+  //  Double_t a=(a1-a2)*(a1-a2) + (c1-c2)*(c1-c2);
 
 
-  Double_t bestZ=-1*((a1-a2)*(b1-b2)+(c1-c2)*(d1-d2))/((a1-a2)*(a1-a2)+(c1-c2)*(c1-c2));
+
+  Double_t bestZ=-1*(((a1-a2)*(b1-b2))+((c1-c2)*(d1-d2)))/(((a1-a2)*(a1-a2))+((c1-c2)*(c1-c2)));
   Double_t bestX=0.5*((a1*bestZ+b1)+(a2*bestZ+b2));
   Double_t bestY=0.5*((c1*bestZ+d1)+(c2*bestZ+d2));
   
@@ -205,7 +209,7 @@ void findGradients(int numPoints, double X[], double Z[], double gradXZ[])
   gradXZ[1] = sumX - gradXZ[0]*sumZ;
 }
 
-#define MAX_SCINT_HITS 200 //Just guess for now
+#define MAX_SCINT_HITS 400 //Just guess for now
 #define MAX_PLANES_PER_SIDE 100
 
 int main(int argc, char**argv)
@@ -240,7 +244,7 @@ int main(int argc, char**argv)
 
     sprintf(inputFile,"%s/%s_%d.root",inputDir,rootName,fileNum);
     TFile* fp = new TFile(inputFile,"READ");
-    std::cout << inputFile << "\t" << fp << "\n";
+    //    std::cout << inputFile << "\t" << fp << "\n";
     if(!worldTree) {
       worldTree = (TTree*) fp->Get("worldTree");
       worldTree->SetMakeClass(1);
@@ -559,6 +563,37 @@ int main(int argc, char**argv)
 	  TVector3 finalDirTrue(xzGradTrue[1],yzGradTrue[1],1);
 	  thetaTrue=intialDirTrue.Angle(finalDirTrue);
 
+// 	  if(zPosTrue<-6000 && zPosTrue>-7000) {
+// 	    std::cout << "xzGradTrue: " << xzGradTrue[0] << "\t" << xzGradTrue[1] << std::endl;;
+// 	    std::cout << "xzCutTrue: " << xzCutTrue[0] << "\t" << xzCutTrue[1] << std::endl;;
+// 	    std::cout << "yzGradTrue: " << yzGradTrue[0] << "\t" << yzGradTrue[1] << std::endl;;
+// 	    std::cout << "yzCutTrue: " << yzCutTrue[0] << "\t" << yzCutTrue[1] << std::endl;;
+// 	    std::cout << "pca: " << xPosTrue << "\t" << yPosTrue << "\t" 
+// 		      << zPosTrue << std::endl;;
+
+// 	    Double_t ax=(xzGradTrue[0]-xzGradTrue[1])*(xzGradTrue[0]-xzGradTrue[1]);
+// 	    Double_t bx=2*(xzGradTrue[0]-xzGradTrue[1])*(xzCutTrue[0]-xzCutTrue[1]);
+// 	    std::cout << "ax = " << ax << " bx = " << bx << " zx = " << (-0.5*bx/ax)
+// 		      << "\n";
+
+// 	    Double_t ay=(yzGradTrue[0]-yzGradTrue[1])*(yzGradTrue[0]-yzGradTrue[1]);
+// 	    Double_t by=2*(yzGradTrue[0]-yzGradTrue[1])*(yzCutTrue[0]-yzCutTrue[1]);
+// 	    std::cout << "ay = " << ay << " by = " << by << " zy = " << (-0.5*by/ay)
+// 		      << "\n";
+// 	    std::cout << "Planes: " << topPlanes << "\t" << botPlanes << "\n";
+// 	    std::cout << "Theta: " << thetaTrue*TMath::RadToDeg() << "\n";
+
+
+// 	    for(int plane=0;plane<planesPerSide*2;plane++) {	  
+// 	      if(gotPlane[plane]) {
+// 		std::cout << "x[" << plane%8 << "]=" << xTrue[plane] << ";"
+// 			  << "\ty[" << plane%8 << "]=" << yTrue[plane] << ";"
+// 			  << "\tz[" << plane%8 << "]=" << zTrue[plane] << ";\n";
+// 	      }
+// 	    }
+
+// 	  }
+
 	  //Now do reco PCA
 	  Double_t pcaReco[3];
 	  PointOfCloseApproach(xzGradReco,yzGradReco,xzCutReco,yzCutReco,pcaReco);
@@ -606,7 +641,7 @@ int main(int argc, char**argv)
 
     }
 
-  newfile->cd();
+  //    newfile->cd();
 
   newfile->Write();
 
