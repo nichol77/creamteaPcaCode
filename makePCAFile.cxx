@@ -299,7 +299,7 @@ Double_t iterativelyFitXYZWithWeights(int nPoints, double X[], double Y[], doubl
    }
 
    if(newPoints>0 && newPoints<3 && nPoints>6) {
-      std::cout << "Redoing after using: " << newPoints << " of " << nPoints << "\n";
+      //      std::cout << "Redoing after using: " << newPoints << " of " << nPoints << "\n";
       //Try another tack and just use all the planes
       fitxyzw(nPoints,X,Y,Z,W,gradXZ,gradYZ);
       meanDiff=0;
@@ -816,7 +816,7 @@ int main(int argc, char**argv)
 		  AGrady=yzGradTrue[0];
 		  ACutx=xzCutTrue[0];
 		  ACuty=yzCutTrue[0];
-		  Absorbed ->Fill();
+		  Absorbed->Fill();
 	       }
 
 	    }

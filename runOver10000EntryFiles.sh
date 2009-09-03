@@ -12,11 +12,16 @@ BASE_NAME=$2
 
 
 #for startVal in 5001 6001 7001 8001 9001; do
-for startVal in `seq 1 1000 10000`; do
-    let endVal=$startVal+999
-    echo $startVal $endVal
-    OUTFILE=${DIR_NAME}/pca/pca_${BASE_NAME}_${startVal}_${endVal}.root
-    time ./makePCAFile $DIR_NAME $BASE_NAME 1000 $OUTFILE $startVal > log.txt 2>&1 
+for indVal in `seq 1 10`; do
+    let startVal=$indVal-1
+    let startVal=100*$startVal
+    let startVal=$startVal+1
+    let endVal=$startVal+99
+#    echo $startVal $endVal
+    OUTFILE=${DIR_NAME}/pca/pca_${BASE_NAME}_million_$indVal.root
+    echo $OUTFILE
+    time ./makePCAFile $DIR_NAME $BASE_NAME 100 $OUTFILE $startVal > log_${BASE_NAME}.txt 2>&1 
+
 done
 
 

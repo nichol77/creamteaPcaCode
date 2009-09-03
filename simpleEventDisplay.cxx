@@ -17,6 +17,7 @@
 #include <TChain.h>
 #include <TCanvas.h>
 #include <TGraph.h>
+#include <TMultiGraph.h>
 #include <TGraphErrors.h>
 #include <TH1.h>
 #include <TH2.h>
@@ -26,6 +27,7 @@
 #include <TMath.h>
 #include <TSystem.h>
 #include <TVector3.h>
+#include <TMarker.h>
 
 // std headers
 #include <iostream>
@@ -363,6 +365,19 @@ void iterativelyFindGradients(Int_t numPoints, Double_t xVals[], Double_t zVals[
 }
 
 
+Double_t getSSquared(Double_t *x, Double_t *par) {
+  Double_t m[4]={par[0],par[2],par[4],par[6]};
+  Double_t c[4]={par[1],par[3],par[5],par[7]};
+  
+  Double_t z=x[0];
+  Double_t x1=m[0]*z+c[0];
+  Double_t x2=m[1]*z+c[1];
+  Double_t y1=m[2]*z+c[2];
+  Double_t y2=m[3]*z+c[3];
+  Double_t sSq=((x1-x2)*(x1-x2))+((y1-y2)*(y1-y2));
+  return sSq;
+}
+
 
 
 
@@ -658,23 +673,23 @@ void plotEvent(int entryNum) {
       TCanvas *canTop = new TCanvas("canTop","canTop",600,600);
       canTop->Divide(1,2);
       canTop->cd(1);
-      TGraphErrors *grTruePosX = new TGraphErrors(rawNumTop,zPosTop,xPosTop,0,xErrTop);
-      grTruePosX->SetMarkerStyle(22);
-      grTruePosX->SetMarkerColor(50);
-      grTruePosX->Draw("ap");
-      TGraph *grTruePlaneX = new TGraph(topPlanes,zTop,xTop);
-      grTruePlaneX->SetMarkerStyle(29);
-      grTruePlaneX->SetMarkerColor(30);
-      grTruePlaneX->Draw("p");
+      TGraphErrors *grTopTruePosX = new TGraphErrors(rawNumTop,zPosTop,xPosTop,0,xErrTop);
+      grTopTruePosX->SetMarkerStyle(22);
+      grTopTruePosX->SetMarkerColor(50);
+      grTopTruePosX->Draw("ap");
+      TGraph *grTopTruePlaneX = new TGraph(topPlanes,zTop,xTop);
+      grTopTruePlaneX->SetMarkerStyle(29);
+      grTopTruePlaneX->SetMarkerColor(30);
+      grTopTruePlaneX->Draw("p");
       canTop->cd(2);
-      TGraphErrors *grTruePosY = new TGraphErrors(rawNumTop,zPosTop,yPosTop,0,yErrTop);
-      grTruePosY->SetMarkerStyle(22);
-      grTruePosY->SetMarkerColor(50);
-      grTruePosY->Draw("ap");
-      TGraph *grTruePlaneY = new TGraph(topPlanes,zTop,yTop);
-      grTruePlaneY->SetMarkerStyle(29);
-      grTruePlaneY->SetMarkerColor(30);
-      grTruePlaneY->Draw("p");
+      TGraphErrors *grTopTruePosY = new TGraphErrors(rawNumTop,zPosTop,yPosTop,0,yErrTop);
+      grTopTruePosY->SetMarkerStyle(22);
+      grTopTruePosY->SetMarkerColor(50);
+      grTopTruePosY->Draw("ap");
+      TGraph *grTopTruePlaneY = new TGraph(topPlanes,zTop,yTop);
+      grTopTruePlaneY->SetMarkerStyle(29);
+      grTopTruePlaneY->SetMarkerColor(30);
+      grTopTruePlaneY->Draw("p");
       TF1 *topPol1X = new TF1("topPol1X","pol1",-8000,+8000);
       TF1 *topPol1Y = new TF1("topPol1Y","pol1",-8000,+8000);
       canTop->cd(1);
@@ -699,23 +714,23 @@ void plotEvent(int entryNum) {
 	TCanvas *canBot = new TCanvas("canBot","canBot",600,600);
 	canBot->Divide(1,2);
 	canBot->cd(1);
-	TGraphErrors *grTruePosX = new TGraphErrors(rawNumBot,zPosBot,xPosBot,0,xErrBot);
-	grTruePosX->SetMarkerStyle(22);
-	grTruePosX->SetMarkerColor(50);
-	grTruePosX->Draw("ap");
-	TGraph *grTruePlaneX = new TGraph(botPlanes,zBot,xBot);
-	grTruePlaneX->SetMarkerStyle(29);
-	grTruePlaneX->SetMarkerColor(30);
-	grTruePlaneX->Draw("p");
+	TGraphErrors *grBotTruePosX = new TGraphErrors(rawNumBot,zPosBot,xPosBot,0,xErrBot);
+	grBotTruePosX->SetMarkerStyle(22);
+	grBotTruePosX->SetMarkerColor(50);
+	grBotTruePosX->Draw("ap");
+	TGraph *grBotTruePlaneX = new TGraph(botPlanes,zBot,xBot);
+	grBotTruePlaneX->SetMarkerStyle(29);
+	grBotTruePlaneX->SetMarkerColor(30);
+	grBotTruePlaneX->Draw("p");
 	canBot->cd(2);
-	TGraphErrors *grTruePosY = new TGraphErrors(rawNumBot,zPosBot,yPosBot,0,yErrBot);
-	grTruePosY->SetMarkerStyle(22);
-	grTruePosY->SetMarkerColor(50);
-	grTruePosY->Draw("ap");
-	TGraph *grTruePlaneY = new TGraph(botPlanes,zBot,yBot);
-	grTruePlaneY->SetMarkerStyle(29);
-	grTruePlaneY->SetMarkerColor(30);
-	grTruePlaneY->Draw("p");
+	TGraphErrors *grBotTruePosY = new TGraphErrors(rawNumBot,zPosBot,yPosBot,0,yErrBot);
+	grBotTruePosY->SetMarkerStyle(22);
+	grBotTruePosY->SetMarkerColor(50);
+	grBotTruePosY->Draw("ap");
+	TGraph *grBotTruePlaneY = new TGraph(botPlanes,zBot,yBot);
+	grBotTruePlaneY->SetMarkerStyle(29);
+	grBotTruePlaneY->SetMarkerColor(30);
+	grBotTruePlaneY->Draw("p");
 	TF1 *botPol1X = new TF1("botPol1X","pol1",-8000,+8000);
 	TF1 *botPol1Y = new TF1("botPol1Y","pol1",-8000,+8000);
 	canBot->cd(1);
@@ -783,9 +798,46 @@ void plotEvent(int entryNum) {
 
 	Double_t pcaTrue[3];
 	PointOfCloseApproach(xzGradTrue,yzGradTrue,xzCutTrue,yzCutTrue,pcaTrue);
+	//	CloseApproach(xzGradTrue,yzGradTrue,xzCutTrue,yzCutTrue,pcaTrue);
 	xPosTrue = pcaTrue[0];
 	yPosTrue = pcaTrue[1];
 	zPosTrue = pcaTrue[2];
+
+
+	TCanvas *canXZ = new TCanvas("canXZ","canXZ",600,600);
+	TMultiGraph *mgX = new TMultiGraph();
+	mgX->Add(grTopTruePosX,"p");
+	mgX->Add(grBotTruePosX,"p");
+	mgX->Draw("ap");
+	topPol1X->SetLineColor(8);
+	topPol1X->Draw("same");
+	botPol1X->SetLineColor(9);
+	botPol1X->Draw("same");
+	TGraph *grPCAX = new TGraph(1,&zPosTrue,&xPosTrue);
+	grPCAX->SetMarkerStyle(29);
+	grPCAX->SetMarkerColor(1);
+	grPCAX->Draw("p");
+
+
+	TCanvas *canYZ = new TCanvas("canYZ","canYZ",600,600);
+	TMultiGraph *mgY = new TMultiGraph();
+	mgY->Add(grTopTruePosY,"p");
+	mgY->Add(grBotTruePosY,"p");
+	mgY->Draw("ap");
+	topPol1Y->SetLineColor(8);
+	topPol1Y->Draw("same");
+	botPol1Y->SetLineColor(9);
+	botPol1Y->Draw("same");
+	TGraph *grPCAY = new TGraph(1,&zPosTrue,&yPosTrue);
+	grPCAY->SetMarkerStyle(29);
+	grPCAY->SetMarkerColor(1);
+	grPCAY->Draw("p");
+
+	TCanvas *canS = new TCanvas("canS","canS",600,600);
+	TF1 *funcs = new TF1("funcs",getSSquared,-8000,8000,8);
+	funcs->SetParameters(xzGradTrue[0],xzCutTrue[0],xzGradTrue[1],xzCutTrue[1],
+			     yzGradTrue[0],yzCutTrue[0],yzGradTrue[1],yzCutTrue[1]);
+	funcs->Draw("");
 
 	TVector3 intialDirTrue(xzGradTrue[0],yzGradTrue[0],1);
 	TVector3 finalDirTrue(xzGradTrue[1],yzGradTrue[1],1);
