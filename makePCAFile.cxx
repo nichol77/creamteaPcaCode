@@ -413,9 +413,12 @@ int main(int argc, char**argv)
    Int_t strip[MAX_SCINT_HITS];
    Double_t truePos[MAX_SCINT_HITS][3];
    Double_t energyDep[MAX_SCINT_HITS];
+   //   Double_t intMom[3];
+   Double_t intEng;
    scintChain->SetMakeClass(1);
    scintChain->SetBranchAddress("run",&fRun);
    scintChain->SetBranchAddress("event",&fEvent);
+   scintChain->SetBranchAddress("intEng",&intEng);
    scintChain->SetBranchAddress("ScintHitInfo",&numScintHits); 
    scintChain->SetBranchAddress("ScintHitInfo.side",side); 
    scintChain->SetBranchAddress("ScintHitInfo.plane",plane); 
@@ -455,6 +458,7 @@ int main(int argc, char**argv)
 
  
    TTree* pcaTree = new TTree ("pcaTree","pcaTree");
+   pcaTree->Branch("intEng",&intEng,"intEng/D");
    pcaTree->Branch ("xPosTrue", &xPosTrue,"xPosTrue/D");
    pcaTree->Branch ("yPosTrue", &yPosTrue,"yPosTrue/D");
    pcaTree->Branch ("zPosTrue", &zPosTrue,"zPosTrue/D");
