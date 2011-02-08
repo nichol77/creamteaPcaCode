@@ -487,6 +487,7 @@ int main(int argc, char**argv)
 
    Double_t absFitQual=0;
    TTree* Absorbed = new TTree("Absorbed","Absorbed");
+   Absorbed->Branch("intEng",&intEng,"intEng/D");
    Absorbed->Branch("xGrad", &AGradx, "gradX/D" );
    Absorbed->Branch("xCut",  &ACutx,  "cutX/D" );
    Absorbed->Branch("yGrad", &AGrady, "gradY/D" );
