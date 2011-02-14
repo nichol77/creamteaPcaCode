@@ -11,7 +11,7 @@ void makeSubFiles()
    int fileCount=0;
    ofstream Out;
    while(Missing >> filename) {
-      if(fileCount%25==0) {
+      if(fileCount%5==0) {
 	 if(Out.is_open()) {
 	    Out.close();
 	 }

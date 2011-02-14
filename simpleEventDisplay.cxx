@@ -38,6 +38,13 @@
 
 
 //Some global variables read from the world tree
+Int_t minervaStrips;
+Double_t scintTriBase;
+Double_t scintTriHeight;
+Double_t scintTriLengthX;
+Double_t scintTriLengthY;
+Int_t numScintTriX;
+Int_t numScintTriY;
 Double_t scintLength;
 Double_t planeWidth;
 Double_t gapBetweenPlanes;
@@ -62,32 +69,81 @@ namespace PlaneView {
 PlaneView::PlaneView_t getStripCoords(Int_t planeNum, Int_t stripNum, Double_t xyz[3])
 {
   //  std::cout << scintLength << "\t" << planeWidth << "\t" << gapBetweenPlanes;
-  PlaneView::PlaneView_t view=PlaneView::kXView;
-  static Double_t stripWidth=scintLength/stripsPerPlane;
-  Int_t onTop=1;
-  if(planeNum>=planesPerSide) {
-    onTop=0;
-    planeNum-=planesPerSide;
+  static Int_t firstTime=1;
+  static Double_t stripZeroX=0;  
+  static Double_t stripZeroY=0;  
+  if(firstTime) {
+    if(minervaStrips) {
+      stripZeroX=-1*((numScintTriX/2)*(scintTriBase/2.));
+      if(numScintTriX%2==0) {
+	stripZeroX+=scintTriBase/4.;
+      }
+      stripZeroY=-1*((numScintTriY/2)*(scintTriBase/2.));
+      if(numScintTriY%2==0) {
+	stripZeroY+=scintTriBase/4.;
+      }
+    }
+    firstTime=0;
   }
 
-  Double_t zPos=(verticalSeparation/2)+gapBetweenPlanes*planeNum + planeWidth*0.5;
-  Double_t xPos=0;
-  Double_t yPos=0;
-  if(!onTop) {
-    zPos=(-1*zPos)+planeWidth;
-  }
-  if(planeNum%2==0) {
-    //These planes are segmented along the x direction
-    xPos=(-1*scintLength/2) + (stripNum+0.5)*stripWidth;   
+  if(!minervaStrips) {
+    PlaneView::PlaneView_t view=PlaneView::kXView;
+    static Double_t stripWidth=scintLength/stripsPerPlane;
+
+    Int_t onTop=1;
+    if(planeNum>=planesPerSide) {
+      onTop=0;
+      planeNum-=planesPerSide;
+    }
+    
+    Double_t zPos=(verticalSeparation/2)+gapBetweenPlanes*planeNum ;//+ planeWidth*0.5;
+    Double_t xPos=0;
+    Double_t yPos=0;
+    if(!onTop) {
+      zPos=(-1*zPos)+planeWidth;
+    }
+    if(planeNum%2==0) {
+      //These planes are segmented along the x direction
+      xPos=(-1*scintLength/2) + (stripNum+0.5)*stripWidth;   
+    }
+    else {
+      view=PlaneView::kYView;
+      yPos=(-1*scintLength/2) + (stripNum+0.5)*stripWidth;   
+    }
+    xyz[0]=xPos*1000; //mm
+    xyz[1]=yPos*1000; //mm
+    xyz[2]=zPos*1000; //mm
+    return view;
   }
   else {
-    view=PlaneView::kYView;
-    yPos=(-1*scintLength/2) + (stripNum+0.5)*stripWidth;   
+    PlaneView::PlaneView_t view=PlaneView::kXView;
+    Int_t onTop=1;
+    if(planeNum>=planesPerSide) {
+      onTop=0;
+      planeNum-=planesPerSide;
+    }
+    Double_t zPos=(verticalSeparation/2)+gapBetweenPlanes*planeNum;// + scintTriHeight*0.5;
+    Double_t xPos=0;
+    Double_t yPos=0;
+    if(!onTop) {
+      zPos=(-1*zPos)+planeWidth;
+    }
+    if(planeNum%2==0) {
+      //These planes are segmented along the x direction
+      xPos=stripZeroX+(stripNum*scintTriBase/2.);
+    }
+    else {
+      view=PlaneView::kYView;
+      yPos=stripZeroY+(stripNum*scintTriBase/2.);
+    }
+    xyz[0]=xPos*1000; //mm
+    xyz[1]=yPos*1000; //mm
+    xyz[2]=zPos*1000; //mm
+    return view;
+
+
+
   }
-  xyz[0]=xPos*1000; //mm
-  xyz[1]=yPos*1000; //mm
-  xyz[2]=zPos*1000; //mm
-  return view;
 }
 
 void CloseApproach(double xz[2], double yz[2], double inxz[2], double inyz[2], double ca[3])
@@ -238,6 +294,17 @@ void fitxyzw(int nPoints, double X[], double Y[], double Z[], double W[], double
 
 }
 
+
+void fitxzw(int nPoints, double X[], double Z[], double W[], double gradXZ[2])
+{
+  TF1 fpol1("fpol1","pol1",-8000,8000);
+  TGraphErrors fredX(nPoints,Z,X,0,W);
+  fredX.Fit("fpol1","Q");
+  gradXZ[0]=fpol1.GetParameter(1);
+  gradXZ[1]=fpol1.GetParameter(0);
+  
+}
+
 Double_t iterativelyFitXYZWithWeights(int nPoints, double X[], double Y[], double Z[], double W[], double gradXZ[2], double gradYZ[2])
 {
   fitxyzw(nPoints,X,Y,Z,W,gradXZ,gradYZ);
@@ -306,10 +373,10 @@ Double_t iterativelyFitXYZWithWeights(int nPoints, double X[], double Y[], doubl
    fitxyzw(nPoints,X,Y,Z,W,gradXZ,gradYZ);
    meanDiff=0;
    for(int i=0;i<nPoints;i++) {    
-     Double_t diff=((X[i]-(newGradXZ[0]*Z[i]+newGradXZ[1]))*
-		    (X[i]-(newGradXZ[0]*Z[i]+newGradXZ[1])));
-     diff+=((Y[i]-(newGradYZ[0]*Z[i]+newGradYZ[1]))*
-	    (Y[i]-(newGradYZ[0]*Z[i]+newGradYZ[1])));
+     Double_t diff=((X[i]-(gradXZ[0]*Z[i]+gradXZ[1]))*
+		    (X[i]-(gradXZ[0]*Z[i]+gradXZ[1])));
+     diff+=((Y[i]-(gradYZ[0]*Z[i]+gradYZ[1]))*
+	    (Y[i]-(gradYZ[0]*Z[i]+gradYZ[1])));
      meanDiff+=diff;
    }
    meanDiff/=nPoints;
@@ -317,6 +384,84 @@ Double_t iterativelyFitXYZWithWeights(int nPoints, double X[], double Y[], doubl
   return meanDiff;
 }
 
+
+Double_t iterativelyFitXZWithWeights(int nPoints, double X[], double Z[], double W[], double gradXZ[2])
+{
+  fitxzw(nPoints,X,Z,W,gradXZ);
+//   Double_t newX[MAX_SCINT_HITS];
+//   Double_t newZ[MAX_SCINT_HITS];
+//   Double_t newW[MAX_SCINT_HITS];
+//   Int_t newPoints=0;
+//   Int_t excludePoint[MAX_SCINT_HITS]={0};
+  
+  Double_t newGradXZ[2]={gradXZ[0],gradXZ[1]};
+
+  Double_t meanDiff=0;
+//   for(int it=0;it<nPoints-1;it++) {
+//     Double_t maxDiff=0;
+//     Int_t maxPoint=0;   
+//     meanDiff=0;
+//     Int_t countDiffs=0;
+//     for(int i=0;i<nPoints;i++) {    
+//       if(excludePoint[i]) continue;
+//       Double_t diff=((X[i]-(newGradXZ[0]*Z[i]+newGradXZ[1]))*
+// 		     (X[i]-(newGradXZ[0]*Z[i]+newGradXZ[1])));
+//       meanDiff+=diff;
+//       countDiffs++;
+//       std::cout << "Point " << i << "\t" << X[i] << "\t" << Z[i] 
+// 		<< "\t" << diff << "\n";
+//       if(diff>maxDiff) {
+// 	maxDiff=diff;
+// 	maxPoint=i;
+//       }
+//     }
+//     meanDiff/=countDiffs;
+//     std::cout << "Max Point " << maxPoint << "\t" << maxDiff << "\t" << meanDiff <<  "\n";
+//     if(maxDiff<1) break;
+
+//     excludePoint[maxPoint]=1;
+//     newPoints=0;
+//     for(int i=0;i<nPoints;i++) {    
+//       if(excludePoint[i]) continue;
+//       newX[newPoints]=X[i];
+//       newZ[newPoints]=Z[i];
+//       newW[newPoints]=W[i];
+//       newPoints++;
+//     }
+//     fitxzw(newPoints,newX,newZ,newW,newGradXZ);
+    
+
+//   //   std::cout << TMath::Abs(gradXZ[0]-newGradXZ[0]) << "\t"
+// // 	      << TMath::Abs(gradXZ[1]-newGradXZ[1]) << "\n";
+
+
+//     gradXZ[0]=newGradXZ[0];
+//     gradXZ[1]=newGradXZ[1];
+//   }
+
+//   if(newPoints>0 && newPoints<3 && nPoints>2) {
+//     std::cout << "Redoing after using: " << newPoints << " of " << nPoints << "\n";
+//     //Try another tack and just use all the planes
+//    fitxzw(nPoints,X,Z,W,gradXZ);
+//    meanDiff=0;
+//    for(int i=0;i<nPoints;i++) {    
+//      Double_t diff=((X[i]-(newGradXZ[0]*Z[i]+newGradXZ[1]))*
+// 		    (X[i]-(newGradXZ[0]*Z[i]+newGradXZ[1])));
+//      meanDiff+=diff;
+//    }
+//    meanDiff/=nPoints;
+//   }
+  
+
+  meanDiff=0;
+  for(int i=0;i<nPoints;i++) {    
+    Double_t diff=((X[i]-(gradXZ[0]*Z[i]+gradXZ[1]))*
+		   (X[i]-(gradXZ[0]*Z[i]+gradXZ[1])));
+    meanDiff+=diff;
+  }
+  meanDiff/=nPoints;
+  return meanDiff;
+}
 
 
 
@@ -413,6 +558,13 @@ void loadFiles(char *inputDir, char *rootName, int fileNum)
     worldTree->SetBranchAddress("stripsPerPlane",&stripsPerPlane);
     worldTree->SetBranchAddress("planesPerSide",&planesPerSide);
     worldTree->SetBranchAddress("verticalSeparation",&verticalSeparation);
+    worldTree->SetBranchAddress("minervaStrips",&minervaStrips);
+    worldTree->SetBranchAddress("scintTriBase",&scintTriBase);
+    worldTree->SetBranchAddress("scintTriHeight",&scintTriHeight);
+    worldTree->SetBranchAddress("scintTriLengthX",&scintTriLengthX);
+    worldTree->SetBranchAddress("scintTriLengthY",&scintTriLengthY);
+    worldTree->SetBranchAddress("numScintTriX",&numScintTriX);
+    worldTree->SetBranchAddress("numScintTriY",&numScintTriY);
     worldTree->GetEntry(0);
     //RJN hack for now
     //      verticalSeparation=3;
@@ -458,7 +610,7 @@ void plotEvent(int entryNum) {
   double xzCutReco[2]  = {0.0};  // axis intercept xz plane (b)
   double yzCutReco[2]  = {0.0};  // as above yz plane
   int gotRecoPCA=0;
-  
+  PlaneView::PlaneView_t whichView[MAX_SCINT_HITS];
 
  
   //   TTree* pcaTree = new TTree ("pcaTree","pcaTree");
@@ -496,116 +648,14 @@ void plotEvent(int entryNum) {
   //   TH2F* AbsorbedHisto = new TH2F("AbsorbedH","AbsorbedH", noBins, -histoRange/2, histoRange/2, noBins, -histoRange/2, histoRange/2);
 
 
-  double xTop[MAX_PLANES_PER_SIDE],yTop[MAX_PLANES_PER_SIDE],zTop[MAX_PLANES_PER_SIDE];
-  double xBot[MAX_PLANES_PER_SIDE],yBot[MAX_PLANES_PER_SIDE],zBot[MAX_PLANES_PER_SIDE];
-
-  double xTopReco[MAX_PLANES_PER_SIDE],yTopReco[MAX_PLANES_PER_SIDE],xzTopReco[MAX_PLANES_PER_SIDE],yzTopReco[MAX_PLANES_PER_SIDE];
-  double xBotReco[MAX_PLANES_PER_SIDE],yBotReco[MAX_PLANES_PER_SIDE],xzBotReco[MAX_PLANES_PER_SIDE],yzBotReco[MAX_PLANES_PER_SIDE];
-
-
   scintChain->GetEntry(entryNum);
 
 
   //	std::cout << "Num hits:\t" << numScintHits << "\n";
   if(numScintHits>3) {
     //Minimum requirement
-    int gotPlane[MAX_PLANES_PER_SIDE*2]={0};
-    Double_t xTrue[MAX_PLANES_PER_SIDE*2]={0},yTrue[MAX_PLANES_PER_SIDE*2]={0},zTrue[MAX_PLANES_PER_SIDE*2]={0};
-    Double_t xReco[MAX_PLANES_PER_SIDE*2]={0},yReco[MAX_PLANES_PER_SIDE*2]={0},zReco[MAX_PLANES_PER_SIDE*2]={0};
-    Int_t whichView[MAX_PLANES_PER_SIDE*2]={0};
-    Double_t weights[MAX_PLANES_PER_SIDE*2]={0};
-    for(int hit=0;hit<numScintHits;hit++) {
-      if(energyDep[hit]<MIN_ENERGY_THRESHOLD) continue;
-      //      std::cout << plane[hit] << "\t" << strip[hit] << "\t" << truePos[hit][2] << "\t" << energyDep[hit] << "\n";
-      Double_t recoXYZ[3];
-      whichView[plane[hit]]=getStripCoords(plane[hit],strip[hit],recoXYZ);
-      //	  std::cout << plane[hit] << "\t" << strip[hit] << "\n";
-      //	  std::cout << "Reco: " << recoXYZ[0] << "\t" << recoXYZ[1] << "\t"
-      //		    << recoXYZ[2] << "\n";
-      //	  std::cout << "True: " << truePos[hit][0] << "\t" << truePos[hit][1] << "\t"
-      //		    << truePos[hit][2] << "\n";
-
-      if(TMath::IsNaN(recoXYZ[0])) {
-	std::cout << "Nan at getStripCoords for plane " << plane[hit] << " strip " << strip[hit] << "\n";
-      }
-	    
-	  
-      gotPlane[plane[hit]]=1;
-      xTrue[plane[hit]]+=truePos[hit][0]*energyDep[hit];
-      yTrue[plane[hit]]+=truePos[hit][1]*energyDep[hit];
-      zTrue[plane[hit]]+=truePos[hit][2]*energyDep[hit];
-      xReco[plane[hit]]+=recoXYZ[0]*energyDep[hit];
-      yReco[plane[hit]]+=recoXYZ[1]*energyDep[hit];
-      zReco[plane[hit]]+=recoXYZ[2]*energyDep[hit];
-      weights[plane[hit]]+=energyDep[hit];
-    }	
-	
-    int topPlanes=0;
-    int botPlanes=0;
-    int topPlanesXView=0;
-    int topPlanesYView=0;
-    int botPlanesXView=0;
-    int botPlanesYView=0;
-	
-
-    //Normalise to find the actual values
-    for(int planeNum=0;planeNum<planesPerSide*2;planeNum++) {	  
-      if(gotPlane[planeNum]) {
-	xTrue[planeNum]/=weights[planeNum];
-	yTrue[planeNum]/=weights[planeNum];
-	zTrue[planeNum]/=weights[planeNum];
-	xReco[planeNum]/=weights[planeNum];
-	yReco[planeNum]/=weights[planeNum];
-	zReco[planeNum]/=weights[planeNum];
-	    
-	if(TMath::IsNaN(xReco[planeNum])) { 
-	  std::cout << xReco[planeNum] << "\t" << weights[planeNum] << "\n";
-	}
-      }
-    }
-	
-
-    //Now determine the point of closest approach using the true values
-    for(int planeNum=0;planeNum<planesPerSide;planeNum++) {	  
-      //	    std::cout << planeNum << "\t" << xTrue[planeNum] << "\t" << yTrue[planeNum] << "\t" << zTrue[planeNum] << "\n";
-      if(gotPlane[planeNum]) {
-	xTop[topPlanes]=xTrue[planeNum];
-	yTop[topPlanes]=yTrue[planeNum];
-	zTop[topPlanes]=zTrue[planeNum];
-	topPlanes++;
-
-	if(whichView[planeNum]==PlaneView::kXView) {
-	  xTopReco[topPlanesXView]=xReco[planeNum];
-	  xzTopReco[topPlanesXView]=zReco[planeNum];
-	  topPlanesXView++;
-	}
-	else {
-	  yTopReco[topPlanesYView]=yReco[planeNum];
-	  yzTopReco[topPlanesYView]=zReco[planeNum];
-	  topPlanesYView++;
-	}
-      }
-      if(gotPlane[planeNum+ planesPerSide]) {
-	xBot[botPlanes]=xTrue[planeNum+ planesPerSide];
-	yBot[botPlanes]=yTrue[planeNum+ planesPerSide];
-	zBot[botPlanes]=zTrue[planeNum+ planesPerSide];
-	botPlanes++;
-
-	if(whichView[planeNum]==PlaneView::kXView) {
-	  xBotReco[botPlanesXView]=xReco[planeNum+planesPerSide];
-	  xzBotReco[botPlanesXView]=zReco[planeNum+planesPerSide];
-	  botPlanesXView++;
-	}
-	else {
-	  yBotReco[botPlanesYView]=yReco[planeNum+planesPerSide];
-	  yzBotReco[botPlanesYView]=zReco[planeNum+planesPerSide];
-	  botPlanesYView++;
-	}
-
-      }
-    }
-
-    //	std::cout << "Planes:\t" << topPlanes << "\t" << botPlanes << "\n";
+    
+    Int_t gotPlane[MAX_PLANES_PER_SIDE*2]={0};
 
     Double_t xPosTop[MAX_SCINT_HITS];
     Double_t yPosTop[MAX_SCINT_HITS];
@@ -620,29 +670,321 @@ void plotEvent(int entryNum) {
     Double_t xErrBot[MAX_SCINT_HITS];
     Double_t yErrBot[MAX_SCINT_HITS];
     Double_t zPosBot[MAX_SCINT_HITS];
-    for(int i=0;i<numScintHits;i++) {
-      if(plane[i]<planesPerSide) {
-	xPosTop[rawNumTop]=truePos[i][0];
-	xErrTop[rawNumTop]=1./energyDep[i];
-	yPosTop[rawNumTop]=truePos[i][1];
-	yErrTop[rawNumTop]=1./energyDep[i];
-	zPosTop[rawNumTop]=truePos[i][2];
+
+    Int_t xPlaneTop[MAX_SCINT_HITS];
+    Int_t xStripTop[MAX_SCINT_HITS];
+    Int_t yPlaneTop[MAX_SCINT_HITS];
+    Int_t yStripTop[MAX_SCINT_HITS];
+    Double_t xPosTopReco[MAX_SCINT_HITS];
+    Double_t yPosTopReco[MAX_SCINT_HITS];
+    Double_t xErrTopReco[MAX_SCINT_HITS];
+    Double_t yErrTopReco[MAX_SCINT_HITS];
+    Double_t zxPosTopReco[MAX_SCINT_HITS];
+    Double_t zyPosTopReco[MAX_SCINT_HITS];
+    Int_t rawNumTopXReco=0;
+    Int_t rawNumTopYReco=0;
+    Int_t xPlaneBot[MAX_SCINT_HITS];
+    Int_t yPlaneBot[MAX_SCINT_HITS];
+    Int_t xStripBot[MAX_SCINT_HITS];
+    Int_t yStripBot[MAX_SCINT_HITS];
+    Double_t xPosBotReco[MAX_SCINT_HITS];
+    Double_t yPosBotReco[MAX_SCINT_HITS];
+    Double_t xErrBotReco[MAX_SCINT_HITS];
+    Double_t yErrBotReco[MAX_SCINT_HITS];
+    Double_t zxPosBotReco[MAX_SCINT_HITS];
+    Double_t zyPosBotReco[MAX_SCINT_HITS];
+    Int_t rawNumBotXReco=0;
+    Int_t rawNumBotYReco=0;
+
+    for(int hit=0;hit<numScintHits;hit++) {
+      if(energyDep[hit]<MIN_ENERGY_THRESHOLD) continue;
+      //      std::cout << plane[hit] << "\t" << strip[hit] << "\t" << truePos[hit][2] << "\t" << energyDep[hit] << "\n";
+      Double_t recoXYZ[3];
+      whichView[hit]=getStripCoords(plane[hit],strip[hit],recoXYZ);
+ //      if(plane[hit]%2==0) {
+	std::cout << plane[hit] << "\t" << strip[hit] << "\n";
+// 	std::cout << "Reco: " << recoXYZ[0] << "\t" << recoXYZ[1] << "\t"
+// 		  << recoXYZ[2] << "\n";
+// 	std::cout << "True: " << truePos[hit][0] << "\t" << truePos[hit][1] << "\t"
+// 		  << truePos[hit][2] << "\n";
+// 	std::cout << "xDiff:\t" << truePos[hit][0]-recoXYZ[0] << "\n";
+//       }
+      if(TMath::IsNaN(recoXYZ[0])) {
+	std::cout << "Nan at getStripCoords for plane " << plane[hit] << " strip " << strip[hit] << "\n";
+      }
+
+      gotPlane[plane[hit]]=1;
+      
+      if(plane[hit]<planesPerSide) {
+	xPosTop[rawNumTop]=truePos[hit][0];
+	xErrTop[rawNumTop]=1./energyDep[hit];
+	yPosTop[rawNumTop]=truePos[hit][1];
+	yErrTop[rawNumTop]=1./energyDep[hit];
+	zPosTop[rawNumTop]=truePos[hit][2];
 	rawNumTop++;
       }
       else {
-	xPosBot[rawNumBot]=truePos[i][0];
-	xErrBot[rawNumBot]=1./energyDep[i];
-	yPosBot[rawNumBot]=truePos[i][1];
-	yErrBot[rawNumBot]=1./energyDep[i];
-	zPosBot[rawNumBot]=truePos[i][2];
+	xPosBot[rawNumBot]=truePos[hit][0];
+	xErrBot[rawNumBot]=1./energyDep[hit];
+	yPosBot[rawNumBot]=truePos[hit][1];
+	yErrBot[rawNumBot]=1./energyDep[hit];
+	zPosBot[rawNumBot]=truePos[hit][2];
 	rawNumBot++;
+      }
+      
+      
+      //Now the reco ones
+      if(plane[hit]<planesPerSide) {
+	if(whichView[hit]==PlaneView::kXView) {
+	  xPlaneTop[rawNumTopXReco]=plane[hit];
+	  xStripTop[rawNumTopXReco]=strip[hit];
+	  xPosTopReco[rawNumTopXReco]=recoXYZ[0];
+	  xErrTopReco[rawNumTopXReco]=1./energyDep[hit];
+	  zxPosTopReco[rawNumTopXReco]=recoXYZ[2];
+	  rawNumTopXReco++;
+	}
+	else {
+	  yPlaneTop[rawNumTopYReco]=plane[hit];
+	  xStripTop[rawNumTopXReco]=strip[hit];
+	  yPosTopReco[rawNumTopYReco]=recoXYZ[1];
+	  yErrTopReco[rawNumTopYReco]=1./energyDep[hit];
+	  zyPosTopReco[rawNumTopYReco]=recoXYZ[2];
+	  rawNumTopYReco++;
+	}
+      }
+      else {
+	if(whichView[hit]==PlaneView::kXView) {
+	  xPlaneBot[rawNumBotXReco]=plane[hit];	  
+	  xStripBot[rawNumTopXReco]=strip[hit];
+	  xPosBotReco[rawNumBotXReco]=recoXYZ[0];
+	  xErrBotReco[rawNumBotXReco]=1./energyDep[hit];
+	  zxPosBotReco[rawNumBotXReco]=recoXYZ[2];
+	  rawNumBotXReco++;
+	}
+	else {
+	  yPlaneBot[rawNumBotYReco]=plane[hit];
+	  xStripBot[rawNumTopXReco]=strip[hit];
+	  yPosBotReco[rawNumBotYReco]=recoXYZ[1];
+	  yErrBotReco[rawNumBotYReco]=1./energyDep[hit];
+	  zyPosBotReco[rawNumBotYReco]=recoXYZ[2];
+	  rawNumBotYReco++;
+	}
       }
     }
 
+    Double_t xTopAvgX[MAX_SCINT_HITS]={0};
+    Double_t xTopAvgZ[MAX_SCINT_HITS]={0};
+    Double_t xTopAvgW[MAX_SCINT_HITS]={0};
+    Int_t countXTop=0;
+    Double_t yTopAvgY[MAX_SCINT_HITS]={0};
+    Double_t yTopAvgZ[MAX_SCINT_HITS]={0};
+    Double_t yTopAvgW[MAX_SCINT_HITS]={0};
+    Int_t countYTop=0;
+    Double_t xBotAvgX[MAX_SCINT_HITS]={0};
+    Double_t xBotAvgZ[MAX_SCINT_HITS]={0};
+    Double_t xBotAvgW[MAX_SCINT_HITS]={0};
+    Int_t countXBot=0;
+    Double_t yBotAvgY[MAX_SCINT_HITS]={0};
+    Double_t yBotAvgZ[MAX_SCINT_HITS]={0};
+    Double_t yBotAvgW[MAX_SCINT_HITS]={0};
+    Int_t countYBot=0;
+    for(int testPlane=0;testPlane<planesPerSide;testPlane+=2) {
+      Int_t countHits=0;
+      Int_t stripsHit[MAX_SCINT_HITS]={0};
+      Int_t index[MAX_SCINT_HITS]={0};
+      Int_t indexIndex[MAX_SCINT_HITS]={0};
+      for(int i=0;i<rawNumTopXReco;i++) {
+	Int_t pl=xPlaneTop[i];
+	Int_t st=xStripTop[i];
+	if(pl==testPlane) {
+	  stripsHit[countHits]=st;
+	  index[countHits]=i;
+	  countHits++;
+	}
+      }
+      TMath::Sort(countHits,stripsHit,indexIndex);
+      Int_t lastStrip=-1;
+      for(int hit=0;hit<countHits;hit++) {
+	Int_t i=index[indexIndex[hit]];
+	Int_t st=xStripTop[i];
+	Int_t pl=xPlaneTop[i];
+	Double_t x=xPosTopReco[i];
+	Double_t z=zxPosTopReco[i];
+	Double_t w=xErrTopReco[i];
+	if(st==lastStrip-1) {
+	  Double_t newW=xTopAvgW[countXTop-1]+w;
+	  Double_t newX=(xTopAvgX[countXTop-1]*xTopAvgW[countXTop-1])+(x*w);
+	  Double_t newZ=(xTopAvgZ[countXTop-1]*xTopAvgW[countXTop-1])+(z*w);
+	  newX/=newW;
+	  newZ/=newW;
+	  xTopAvgW[countXTop-1]=newW;
+	  xTopAvgZ[countXTop-1]=newZ;
+	  xTopAvgX[countXTop-1]=newX;	  
+	}
+	else {
+	  xTopAvgX[countXTop]=x;
+	  xTopAvgZ[countXTop]=z;
+	  xTopAvgW[countXTop]=w;
+	  countXTop++;
+	}
+	lastStrip=st;
+	//	std::cout << pl << "\t" << st << "\t"  <<  x 
+	//		<< "\t" << z << "\t" << w << "\n";
+      }
+    }
+
+    //Next up same thing for yTop
+    for(int testPlane=1;testPlane<planesPerSide;testPlane+=2) {
+      Int_t countHits=0;
+      Int_t stripsHit[MAX_SCINT_HITS]={0};
+      Int_t index[MAX_SCINT_HITS]={0};
+      Int_t indexIndex[MAX_SCINT_HITS]={0};
+      for(int i=0;i<rawNumTopYReco;i++) {
+	Int_t pl=yPlaneTop[i];
+	Int_t st=yStripTop[i];
+	if(pl==testPlane) {
+	  stripsHit[countHits]=st;
+	  index[countHits]=i;
+	  countHits++;
+	}
+      }
+      TMath::Sort(countHits,stripsHit,indexIndex);
+      Int_t lastStrip=-1;
+      for(int hit=0;hit<countHits;hit++) {
+	Int_t i=index[indexIndex[hit]];
+	Int_t st=yStripTop[i];
+	Int_t pl=yPlaneTop[i];
+	Double_t y=yPosTopReco[i];
+	Double_t z=zyPosTopReco[i];
+	Double_t w=yErrTopReco[i];
+	if(st==lastStrip-1) {
+	  Double_t newW=yTopAvgW[countYTop-1]+w;
+	  Double_t newY=(yTopAvgY[countYTop-1]*yTopAvgW[countYTop-1])+(y*w);
+	  Double_t newZ=(yTopAvgZ[countYTop-1]*yTopAvgW[countYTop-1])+(z*w);
+	  newY/=newW;
+	  newZ/=newW;
+	  yTopAvgW[countYTop-1]=newW;
+	  yTopAvgZ[countYTop-1]=newZ;
+	  yTopAvgY[countYTop-1]=newY;	  
+	}
+	else {
+	  yTopAvgY[countYTop]=y;
+	  yTopAvgZ[countYTop]=z;
+	  yTopAvgW[countYTop]=w;
+	  countYTop++;
+	}
+	lastStrip=st;
+	//	std::cout << pl << "\t" << st << "\t"  <<  y 
+	//		<< "\t" << z << "\t" << w << "\n";
+      }
+    }
+
+    //xBot
+   for(int testPlane=planesPerSide;testPlane<2*planesPerSide;testPlane+=2) {
+      Int_t countHits=0;
+      Int_t stripsHit[MAX_SCINT_HITS]={0};
+      Int_t index[MAX_SCINT_HITS]={0};
+      Int_t indexIndex[MAX_SCINT_HITS]={0};
+      for(int i=0;i<rawNumBotXReco;i++) {
+	Int_t pl=xPlaneBot[i];
+	Int_t st=xStripBot[i];
+	if(pl==testPlane) {
+	  stripsHit[countHits]=st;
+	  index[countHits]=i;
+	  countHits++;
+	}
+      }
+      TMath::Sort(countHits,stripsHit,indexIndex);
+      Int_t lastStrip=-1;
+      for(int hit=0;hit<countHits;hit++) {
+	Int_t i=index[indexIndex[hit]];
+	Int_t st=xStripBot[i];
+	Int_t pl=xPlaneBot[i];
+	Double_t x=xPosBotReco[i];
+	Double_t z=zxPosBotReco[i];
+	Double_t w=xErrBotReco[i];
+	if(st==lastStrip-1) {
+	  Double_t newW=xBotAvgW[countXBot-1]+w;
+	  Double_t newX=(xBotAvgX[countXBot-1]*xBotAvgW[countXBot-1])+(x*w);
+	  Double_t newZ=(xBotAvgZ[countXBot-1]*xBotAvgW[countXBot-1])+(z*w);
+	  newX/=newW;
+	  newZ/=newW;
+	  xBotAvgW[countXBot-1]=newW;
+	  xBotAvgZ[countXBot-1]=newZ;
+	  xBotAvgX[countXBot-1]=newX;	  
+	}
+	else {
+	  xBotAvgX[countXBot]=x;
+	  xBotAvgZ[countXBot]=z;
+	  xBotAvgW[countXBot]=w;
+	  countXBot++;
+	}
+	lastStrip=st;
+	//	std::cout << pl << "\t" << st << "\t"  <<  x 
+	//		<< "\t" << z << "\t" << w << "\n";
+      }
+    }
+
+    //Next up same thing for yBot
+    for(int testPlane=planesPerSide+1;testPlane<2*planesPerSide;testPlane+=2) {
+      Int_t countHits=0;
+      Int_t stripsHit[MAX_SCINT_HITS]={0};
+      Int_t index[MAX_SCINT_HITS]={0};
+      Int_t indexIndex[MAX_SCINT_HITS]={0};
+      for(int i=0;i<rawNumBotYReco;i++) {
+	Int_t pl=yPlaneBot[i];
+	Int_t st=yStripBot[i];
+	if(pl==testPlane) {
+	  stripsHit[countHits]=st;
+	  index[countHits]=i;
+	  countHits++;
+	}
+      }
+      TMath::Sort(countHits,stripsHit,indexIndex);
+      Int_t lastStrip=-1;
+      for(int hit=0;hit<countHits;hit++) {
+	Int_t i=index[indexIndex[hit]];
+	Int_t st=yStripBot[i];
+	Int_t pl=yPlaneBot[i];
+	Double_t y=yPosBotReco[i];
+	Double_t z=zyPosBotReco[i];
+	Double_t w=yErrBotReco[i];
+	if(st==lastStrip-1) {
+	  Double_t newW=yBotAvgW[countYBot-1]+w;
+	  Double_t newY=(yBotAvgY[countYBot-1]*yBotAvgW[countYBot-1])+(y*w);
+	  Double_t newZ=(yBotAvgZ[countYBot-1]*yBotAvgW[countYBot-1])+(z*w);
+	  newY/=newW;
+	  newZ/=newW;
+	  yBotAvgW[countYBot-1]=newW;
+	  yBotAvgZ[countYBot-1]=newZ;
+	  yBotAvgY[countYBot-1]=newY;	  
+	}
+	else {
+	  yBotAvgY[countYBot]=y;
+	  yBotAvgZ[countYBot]=z;
+	  yBotAvgW[countYBot]=w;
+	  countYBot++;
+	}
+	lastStrip=st;
+	//	std::cout << pl << "\t" << st << "\t"  <<  y 
+	//		<< "\t" << z << "\t" << w << "\n";
+      }
+    }
+ //    for(int i=0;i<countYBot;i++) {
+//       std::cout << yBotAvgY[i] << "\t" << yBotAvgZ[i] << "\t"
+// 		<< yBotAvgW[i] << "\n";
+//     }
+      
 
 
 
-
+    Int_t topPlanes=0;
+    Int_t botPlanes=0;
+    for(int plane=0;plane<planesPerSide;plane++) {
+      if(gotPlane[plane]) topPlanes++;
+      if(gotPlane[plane+planesPerSide]) botPlanes++;
+    }
+    std::cout << "Planes:\t" << topPlanes << "\t" << botPlanes << "\n";
     if(topPlanes>=4) {
 
       //Now find the gradients using the true positions
@@ -659,15 +1001,15 @@ void plotEvent(int entryNum) {
       //Now find the gradients using the reco positions
       Double_t recoGradXZ[2];
       Double_t recoGradYZ[2];
-      findGradients(topPlanesXView,xTopReco,xzTopReco,recoGradXZ);
-      findGradients(topPlanesYView,yTopReco,yzTopReco,recoGradYZ);
+      iterativelyFitXZWithWeights(countXTop,xTopAvgX,xTopAvgZ,xTopAvgW,recoGradXZ);
+      iterativelyFitXZWithWeights(countYTop,yTopAvgY,yTopAvgZ,yTopAvgW,recoGradYZ);
+      //    findGradients(topPlanesXView,xTopReco,xzTopReco,recoGradXZ);
+      //       findGradients(topPlanesYView,yTopReco,yzTopReco,recoGradYZ);
       xzGradReco[0]=recoGradXZ[0];
       yzGradReco[0]=recoGradYZ[0];
       xzCutReco[0]=recoGradXZ[1];
       yzCutReco[0]=recoGradYZ[1];
-
-      //	std::cout << topPlanesXView << "\t" << recoGradXZ[0] << "\t" << recoGradXZ[1] << "\n";
-      //	std::cout << topPlanes << "\t" << gradxz[0] << "\t" << gradxz[1] << "\n";
+      
 
 
       TCanvas *canTop = new TCanvas("canTop","canTop",600,600);
@@ -677,27 +1019,37 @@ void plotEvent(int entryNum) {
       grTopTruePosX->SetMarkerStyle(22);
       grTopTruePosX->SetMarkerColor(50);
       grTopTruePosX->Draw("ap");
-      TGraph *grTopTruePlaneX = new TGraph(topPlanes,zTop,xTop);
-      grTopTruePlaneX->SetMarkerStyle(29);
-      grTopTruePlaneX->SetMarkerColor(30);
-      grTopTruePlaneX->Draw("p");
+      TGraph *grTopRecoPosX = new TGraph(countXTop,xTopAvgZ,xTopAvgX);
+      grTopRecoPosX->SetMarkerStyle(29);
+      grTopRecoPosX->SetMarkerColor(30);
+      grTopRecoPosX->Draw("p");
       canTop->cd(2);
       TGraphErrors *grTopTruePosY = new TGraphErrors(rawNumTop,zPosTop,yPosTop,0,yErrTop);
       grTopTruePosY->SetMarkerStyle(22);
       grTopTruePosY->SetMarkerColor(50);
       grTopTruePosY->Draw("ap");
-      TGraph *grTopTruePlaneY = new TGraph(topPlanes,zTop,yTop);
-      grTopTruePlaneY->SetMarkerStyle(29);
-      grTopTruePlaneY->SetMarkerColor(30);
-      grTopTruePlaneY->Draw("p");
+      TGraph *grTopRecoPosY = new TGraph(countYTop,yTopAvgZ,yTopAvgY);
+      grTopRecoPosY->SetMarkerStyle(29);
+      grTopRecoPosY->SetMarkerColor(30);
+      grTopRecoPosY->Draw("p");
       TF1 *topPol1X = new TF1("topPol1X","pol1",-8000,+8000);
       TF1 *topPol1Y = new TF1("topPol1Y","pol1",-8000,+8000);
+      TF1 *topPol1XReco = new TF1("topPol1XReco","pol1",-8000,+8000);
+      TF1 *topPol1YReco = new TF1("topPol1YReco","pol1",-8000,+8000);
       canTop->cd(1);
       topPol1X->SetParameters(xzCutTrue[0],xzGradTrue[0]);
+      topPol1X->SetLineColor(50);
       topPol1X->Draw("same");
+      topPol1XReco->SetParameters(xzCutReco[0],xzGradReco[0]);
+      topPol1XReco->SetLineColor(8);
+      topPol1XReco->Draw("same");
       canTop->cd(2);
       topPol1Y->SetParameters(yzCutTrue[0],yzGradTrue[0]);
+      topPol1Y->SetLineColor(50);
       topPol1Y->Draw("same");
+      topPol1YReco->SetParameters(yzCutReco[0],yzGradReco[0]);
+      topPol1YReco->SetLineColor(8);
+      topPol1YReco->Draw("same");
       
 
 
@@ -718,19 +1070,19 @@ void plotEvent(int entryNum) {
 	grBotTruePosX->SetMarkerStyle(22);
 	grBotTruePosX->SetMarkerColor(50);
 	grBotTruePosX->Draw("ap");
-	TGraph *grBotTruePlaneX = new TGraph(botPlanes,zBot,xBot);
-	grBotTruePlaneX->SetMarkerStyle(29);
-	grBotTruePlaneX->SetMarkerColor(30);
-	grBotTruePlaneX->Draw("p");
+	TGraph *grBotRecoPosX = new TGraph(rawNumBotXReco,zxPosBotReco,xPosBotReco);
+	grBotRecoPosX->SetMarkerStyle(29);
+	grBotRecoPosX->SetMarkerColor(30);
+	grBotRecoPosX->Draw("p");
 	canBot->cd(2);
 	TGraphErrors *grBotTruePosY = new TGraphErrors(rawNumBot,zPosBot,yPosBot,0,yErrBot);
 	grBotTruePosY->SetMarkerStyle(22);
 	grBotTruePosY->SetMarkerColor(50);
 	grBotTruePosY->Draw("ap");
-	TGraph *grBotTruePlaneY = new TGraph(botPlanes,zBot,yBot);
-	grBotTruePlaneY->SetMarkerStyle(29);
-	grBotTruePlaneY->SetMarkerColor(30);
-	grBotTruePlaneY->Draw("p");
+	TGraph *grBotRecoPosY = new TGraph(rawNumBotYReco,zxPosBotReco,xPosBotReco);
+	grBotRecoPosY->SetMarkerStyle(29);
+	grBotRecoPosY->SetMarkerColor(30);
+	grBotRecoPosY->Draw("p");
 	TF1 *botPol1X = new TF1("botPol1X","pol1",-8000,+8000);
 	TF1 *botPol1Y = new TF1("botPol1Y","pol1",-8000,+8000);
 	canBot->cd(1);
@@ -766,8 +1118,8 @@ void plotEvent(int entryNum) {
 	  thetayzTrue = acos(pdotq/(modp*modq));
 	}
 
-	findGradients(botPlanesXView,xBotReco,xzBotReco,recoGradXZ);
-	findGradients(botPlanesYView,yBotReco,yzBotReco,recoGradYZ);
+	//	findGradients(botPlanesXView,xBotReco,xzBotReco,recoGradXZ);
+	//	findGradients(botPlanesYView,yBotReco,yzBotReco,recoGradYZ);
 	xzGradReco[1]=recoGradXZ[0];
 	yzGradReco[1]=recoGradYZ[0];
 	xzCutReco[1]=recoGradXZ[1];
