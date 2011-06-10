@@ -787,7 +787,7 @@ Int_t status=scintChain->GetEntry(entry);
 	}
 	else {
 	  yPlaneTop[rawNumTopYReco]=plane[hit];
-	  xStripTop[rawNumTopXReco]=strip[hit];
+	  yStripTop[rawNumTopYReco]=strip[hit];
 	  yPosTopReco[rawNumTopYReco]=recoXYZ[1];
 	  yErrTopReco[rawNumTopYReco]=1./energyDep[hit];
 	  zyPosTopReco[rawNumTopYReco]=recoXYZ[2];
@@ -805,7 +805,7 @@ Int_t status=scintChain->GetEntry(entry);
 	}
 	else {
 	  yPlaneBot[rawNumBotYReco]=plane[hit];
-	  xStripBot[rawNumTopXReco]=strip[hit];
+	  yStripBot[rawNumTopYReco]=strip[hit];
 	  yPosBotReco[rawNumBotYReco]=recoXYZ[1];
 	  yErrBotReco[rawNumBotYReco]=1./energyDep[hit];
 	  zyPosBotReco[rawNumBotYReco]=recoXYZ[2];
