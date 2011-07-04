@@ -1101,23 +1101,13 @@ botPlanes++;
 		  {
 		     float a1 = xzGradTrue[0];
 		     float a2 = xzGradTrue[1];
-	    
-		     float modp = sqrt(1.0+a1*a1);
-		     float modq = sqrt(1.0+a2*a2);
-	    
-		     float pdotq = 1.0/sqrt(modp*modq)+(a1*a2)/sqrt(modp*modq);
-	    
-		     thetaxzTrue = acos(pdotq/(modp*modq));
+	    	    
+		     thetaxzTrue = atan((a2-a1)/(1.0 + a2*a1));
 	    
 		     a1 = yzGradTrue[0];
 		     a2 = yzGradTrue[1];
 
-		     modp = sqrt(1.0+a1*a1);
-		     modq = sqrt(1.0+a2*a2);
-	    
-		     pdotq = 1.0/sqrt(modp*modq)+(a1*a2)/sqrt(modp*modq);
-	    
-		     thetayzTrue = acos(pdotq/(modp*modq));
+		     thetayzTrue = atan((a2-a1)/(1.0 + a2*a1));
 		  }
 		  
 		  
@@ -1137,22 +1127,12 @@ botPlanes++;
 		     float a1 = xzGradReco[0];
 		     float a2 = xzGradReco[1];
 	    
-		     float modp = sqrt(1.0+a1*a1);
-		     float modq = sqrt(1.0+a2*a2);
-	    
-		     float pdotq = 1.0/sqrt(modp*modq)+(a1*a2)/sqrt(modp*modq);
-	    
-		     thetaxzReco = acos(pdotq/(modp*modq));
+		     thetaxzReco = atan((a2-a1)/(1.0 + a2*a1));
 	    
 		     a1 = yzGradReco[0];
 		     a2 = yzGradReco[1];
 
-		     modp = sqrt(1.0+a1*a1);
-		     modq = sqrt(1.0+a2*a2);
-	    
-		     pdotq = 1.0/sqrt(modp*modq)+(a1*a2)/sqrt(modp*modq);
-	    
-		     thetayzReco = acos(pdotq/(modp*modq));
+		     thetayzReco = atan((a2-a1)/(1.0 + a2*a1));
 		  }
 		  //	  std::cout << "RecoXZ: " << xzGradReco[0] << "\t" << xzGradReco[1] << "\n";
 

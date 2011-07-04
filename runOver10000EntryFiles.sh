@@ -18,7 +18,7 @@ for indVal in `seq 1 10`; do
     let startVal=$startVal+1
     let endVal=$startVal+99
 #    echo $startVal $endVal
-    OUTFILE=${DIR_NAME}/pca/pca_${BASE_NAME}_million_$indVal.root
+    OUTFILE=${DIR_NAME}/pcaENG/pca_${BASE_NAME}_million_$indVal.root
     echo $OUTFILE
     time ./makePCAFile $DIR_NAME $BASE_NAME 100 $OUTFILE $startVal > log_${BASE_NAME}.txt 2>&1 
 
